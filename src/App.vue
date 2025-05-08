@@ -4,7 +4,7 @@
       <div class="header-left">
         <div class="logo">
           <img src="/vite.svg" alt="logo" />
-          运营管理中心
+          天云聚合运营管理中心
         </div>
         <div class="quick-access">
           <div class="access-section">
@@ -235,9 +235,10 @@ import { useRouter, useRoute } from 'vue-router'
 const router = useRouter()
 const route = useRoute()
 
-const selectedKey = ref([route.path.substring(1)])
+const selectedKey = ref([route.path.substring(1) || 'dashboard'])
 
 const handleMenuClick = ({ key }: { key: string }) => {
   router.push(`/${key}`)
+  selectedKey.value = [key]
 }
 </script>

@@ -6,109 +6,209 @@
     />
 
     <a-tabs v-model:activeKey="activeKey" class="knowledge-tabs">
+      <!-- 文档管理标签页 -->
       <a-tab-pane key="documents" tab="文档管理">
-        <div class="documents">
-          <a-card>
-            <div class="card-content">
-              <div class="header-actions">
-                <div class="search-wrapper">
-                  <SearchComponent 
-                    :search-fields="documentsSearchFields"
-                    :filters="documentsFilters"
-                    :sort-options="documentsSortOptions"
-                    :quick-filters="documentsQuickFilters"
-                    :enable-export="true"
-                    @search="handleDocumentsSearch"
-                    @filter="handleDocumentsFilter"
-                    @export="handleDocumentsExport"
-                    @save-filter="handleSaveFilter"
-                    class="custom-search-component"
+        <div class="document-management-container">
+          <!-- 左侧文档目录树 -->
+          <div class="directory-tree-container">
+            <DocumentDirectoryTree
+              :loading="directoryLoading"
+              @select="handleDirectorySelect"
+              @add-directory="handleAddDirectory"
+              @edit-directory="handleEditDirectory"
+              @delete-directory="handleDeleteDirectory"
+            />
+          </div>
+          
+          <!-- 右侧文档列表 -->
+          <div class="document-list-container">
+            <a-card :bordered="false">
+              <div class="card-header">
+                <div class="header-title">
+                  <span class="current-directory">{{ currentDirectory ? currentDirectory.title : '全部文档' }}</span>
+                  <span class="document-count" v-if="!isSearching">共 {{ filteredDocumentsData.length }} 个文档</span>
+                  <span class="document-count" v-else>找到 {{ filteredDocumentsData.length }} 个相关文档</span>
+                </div>
+                
+                <div class="header-search">
+                  <a-input-search
+                    placeholder="搜索文档"
+                    v-model:value="documentSearchText"
+                    @search="handleDocumentSearch"
+                    style="width: 250px;"
+                    allow-clear
                   />
                 </div>
-                <div class="action-wrapper">
-                  <a-upload
-                    :multiple="true"
-                    :show-upload-list="false"
-                    @change="handleFileUpload"
-                  >
-                    <a-button type="primary" class="add-button">
-                      <template #icon><UploadOutlined /></template>
-                      上传文档
-                    </a-button>
-                  </a-upload>
-                </div>
               </div>
-            </div>
+              
+              <div class="action-buttons">
+                <a-button type="primary" @click="handleUploadDocument">
+                  <template #icon><UploadOutlined /></template>
+                  上传文档
+                </a-button>
+                <a-button type="primary" @click="handleCreateDocument">
+                  <template #icon><FileAddOutlined /></template>
+                  新建文档
+                </a-button>
+              </div>
 
             <a-table
               :columns="documentsColumns"
-              :data-source="documentsData"
-              :loading="loading"
+                :data-source="filteredDocumentsData"
+                :loading="documentsLoading"
+                :pagination="{ 
+                  pageSize: 10, 
+                  showSizeChanger: true, 
+                  showTotal: (total: number): string => `共 ${total} 条` 
+                }"
               rowKey="id"
             >
               <template #bodyCell="{ column, record }">
+                  <template v-if="column.key === 'title'">
+                    <div class="document-title">
+                      <a-space>
+                        <component :is="getDocumentIcon(record.format)" />
+                        <span>{{ record.title }}</span>
+                      </a-space>
+                    </div>
+                  </template>
+                  
+                  <template v-if="column.key === 'tags'">
+                    <a-space wrap>
+                      <a-tag v-for="tag in record.tags" :key="tag" color="blue">{{ tag }}</a-tag>
+                    </a-space>
+                  </template>
+                  
                 <template v-if="column.key === 'status'">
                   <a-tag :color="getStatusColor(record.status)">
                     {{ getStatusText(record.status) }}
                   </a-tag>
                 </template>
+                  
                 <template v-if="column.key === 'action'">
                   <a-space>
-                    <a @click="handleDownloadDoc(record)">下载</a>
+                      <a @click="handleViewDocument(record)">查看</a>
+                      <a-divider type="vertical" />
+                      <a @click="handleDownloadDocument(record)">下载</a>
                     <a-divider type="vertical" />
-                    <a @click="handleViewDoc(record)">查看</a>
+                      <a @click="handleEditDocument(record)">编辑</a>
                     <a-divider type="vertical" />
                     <a-popconfirm
                       title="确定要删除这个文档吗？"
-                      @confirm="handleDeleteDoc(record)"
+                        @confirm="handleDeleteDocument(record)"
                     >
                       <a>删除</a>
                     </a-popconfirm>
                   </a-space>
                 </template>
               </template>
+                
+                <template #emptyText>
+                  <div class="empty-container">
+                    <div v-if="isSearching">
+                      <SearchOutlined style="font-size: 48px; color: #bfbfbf" />
+                      <p>未找到符合条件的文档</p>
+                    </div>
+                    <div v-else>
+                      <InboxOutlined style="font-size: 48px; color: #bfbfbf" />
+                      <p>暂无文档，请上传或新建文档</p>
+                    </div>
+                  </div>
+              </template>
             </a-table>
           </a-card>
+          </div>
         </div>
       </a-tab-pane>
 
+      <!-- FAQ管理标签页 -->
       <a-tab-pane key="faq" tab="FAQ管理">
-        <div class="faq">
-          <a-card>
-            <div class="card-content">
-              <div class="header-actions">
-                <div class="search-wrapper">
-                  <SearchComponent 
-                    :search-fields="faqSearchFields"
-                    :filters="faqFilters"
-                    :sort-options="faqSortOptions"
-                    :quick-filters="faqQuickFilters"
-                    :enable-export="false"
+        <div class="faq-management-container">
+          <!-- 左侧FAQ分类树 -->
+          <div class="category-tree-container">
+            <FAQCategoryTree
+              :loading="categoryLoading"
+              @select="handleCategorySelect"
+              @add-category="handleAddCategory"
+              @edit-category="handleEditCategory"
+              @delete-category="handleDeleteCategory"
+            />
+          </div>
+          
+          <!-- 右侧FAQ列表 -->
+          <div class="faq-list-container">
+            <a-card :bordered="false">
+              <div class="card-header">
+                <div class="header-title">
+                  <span class="current-category">{{ currentCategory ? currentCategory.title : '全部FAQ' }}</span>
+                  <span class="faq-count" v-if="!isSearchingFAQ">共 {{ filteredFAQData.length }} 个FAQ</span>
+                  <span class="faq-count" v-else>找到 {{ filteredFAQData.length }} 个相关FAQ</span>
+                </div>
+                
+                <div class="header-search">
+                  <a-input-search
+                    placeholder="搜索FAQ"
+                    v-model:value="faqSearchText"
                     @search="handleFAQSearch"
-                    @filter="handleFAQFilter"
-                    @save-filter="handleSaveFilter"
-                    class="custom-search-component"
+                    style="width: 250px;"
+                    allow-clear
                   />
                 </div>
-                <div class="action-wrapper">
-                  <a-button type="primary" class="add-button" @click="handleAddFAQ">
-                    <template #icon><PlusOutlined /></template>
-                    新增FAQ
-                  </a-button>
-                </div>
               </div>
-            </div>
+              
+              <div class="action-buttons">
+              <a-button type="primary" @click="handleAddFAQ">
+                <template #icon><PlusOutlined /></template>
+                  新建FAQ
+                </a-button>
+                <a-button @click="handleImportFAQ">
+                  <template #icon><ImportOutlined /></template>
+                  导入FAQ
+              </a-button>
+              </div>
 
             <a-table
               :columns="faqColumns"
-              :data-source="faqData"
-              :loading="loading"
+                :data-source="filteredFAQData"
+                :loading="faqLoading"
+                :pagination="{ 
+                  pageSize: 10, 
+                  showSizeChanger: true, 
+                  showTotal: (total: number): string => `共 ${total} 条` 
+                }"
               rowKey="id"
+                :expandable="{ expandedRowKeys: expandedRowKeys }"
             >
+                <template #expandedRowRender="{ record }">
+                  <p style="margin: 0">{{ record.answer }}</p>
+                </template>
               <template #bodyCell="{ column, record }">
+                  <template v-if="column.key === 'question'">
+                    <div class="faq-question">
+                      <QuestionCircleOutlined style="color: #1890ff; margin-right: 8px" />
+                      <span>{{ record.question }}</span>
+                    </div>
+                  </template>
+                  
+                  <template v-if="column.key === 'tags'">
+                    <a-space wrap>
+                      <a-tag v-for="tag in record.tags" :key="tag" color="green">{{ tag }}</a-tag>
+                    </a-space>
+                  </template>
+                  
+                  <template v-if="column.key === 'status'">
+                    <a-tag :color="record.status === 'enabled' ? 'green' : 'red'">
+                      {{ record.status === 'enabled' ? '已启用' : '已禁用' }}
+                    </a-tag>
+                  </template>
+                  
                 <template v-if="column.key === 'action'">
                   <a-space>
                     <a @click="handleEditFAQ(record)">编辑</a>
+                      <a-divider type="vertical" />
+                      <a @click="handleToggleFAQStatus(record)">
+                        {{ record.status === 'enabled' ? '禁用' : '启用' }}
+                      </a>
                     <a-divider type="vertical" />
                     <a-popconfirm
                       title="确定要删除这个FAQ吗？"
@@ -119,256 +219,440 @@
                   </a-space>
                 </template>
               </template>
+                
+                <template #emptyText>
+                  <div class="empty-container">
+                    <div v-if="isSearchingFAQ">
+                      <SearchOutlined style="font-size: 48px; color: #bfbfbf" />
+                      <p>未找到符合条件的FAQ</p>
+                    </div>
+                    <div v-else>
+                      <QuestionCircleOutlined style="font-size: 48px; color: #bfbfbf" />
+                      <p>暂无FAQ，请添加或导入FAQ</p>
+                    </div>
+                  </div>
+              </template>
             </a-table>
           </a-card>
+          </div>
         </div>
       </a-tab-pane>
     </a-tabs>
 
-    <!-- FAQ表单弹窗 -->
-    <a-modal v-model:visible="faqModalVisible" :title="faqModalTitle" @ok="handleFAQModalOk">
-      <a-form :model="faqForm" ref="faqFormRef" :rules="faqRules">
-        <a-form-item label="问题" name="question">
-          <a-input v-model:value="faqForm.question" placeholder="请输入问题" />
+    <!-- 上传文档弹窗 -->
+    <a-modal
+      v-model:visible="uploadModalVisible"
+      title="上传文档"
+      :footer="null"
+      @cancel="uploadModalVisible = false"
+    >
+      <div class="upload-modal-content">
+        <a-alert
+          type="info"
+          show-icon
+          message="文档模板"
+          description="根据文档模板规范上传文档，以便系统正确处理您的文档。"
+          style="margin-bottom: 16px"
+        />
+        
+        <a-button type="link" class="template-download-link">
+          <DownloadOutlined /> 下载文档模板
+        </a-button>
+        
+        <a-divider />
+        
+        <a-form :model="uploadForm" :rules="uploadRules" ref="uploadFormRef" layout="vertical">
+          <a-form-item label="目标目录" name="directoryId" required>
+            <a-tree-select
+              v-model:value="uploadForm.directoryId"
+              :tree-data="directoryTreeData"
+              placeholder="请选择目标目录"
+              tree-default-expand-all
+              show-search
+              style="width: 100%"
+            />
+          </a-form-item>
+          
+          <a-form-item label="关联知识库" name="knowledgeBaseIds" required>
+            <a-select
+              v-model:value="uploadForm.knowledgeBaseIds"
+              mode="multiple"
+              placeholder="请选择关联知识库"
+              style="width: 100%"
+            >
+              <a-select-option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
+                {{ kb.name }}
+              </a-select-option>
+            </a-select>
+          </a-form-item>
+          
+          <a-form-item label="文档标签" name="tags">
+            <a-select
+              v-model:value="uploadForm.tags"
+              mode="tags"
+              placeholder="请输入标签，按Enter确认"
+              style="width: 100%"
+            />
+          </a-form-item>
+          
+          <a-form-item label="上传文件" name="files" required>
+            <a-upload-dragger
+              v-model:fileList="uploadForm.files"
+              :multiple="true"
+              action="/api/documents/upload"
+              :before-upload="handleBeforeUpload"
+              @change="handleUploadChange"
+            >
+              <p class="ant-upload-drag-icon">
+                <InboxOutlined />
+              </p>
+              <p class="ant-upload-text">点击或拖拽文件到此区域上传</p>
+              <p class="ant-upload-hint">
+                支持单个或批量上传。支持 PDF、Word、Excel、PowerPoint 等格式。
+              </p>
+            </a-upload-dragger>
+          </a-form-item>
+          
+          <div class="modal-footer">
+            <a-button @click="uploadModalVisible = false">取消</a-button>
+            <a-button type="primary" :loading="uploading" @click="handleSubmitUpload">
+              上传
+            </a-button>
+          </div>
+        </a-form>
+      </div>
+    </a-modal>
+
+    <!-- 编辑/新建文档元数据弹窗 -->
+    <a-modal
+      v-model:visible="documentModalVisible"
+      :title="documentModalTitle"
+      @ok="handleDocumentModalOk"
+      :confirmLoading="documentSubmitting"
+      @cancel="documentModalVisible = false"
+    >
+      <a-form :model="documentForm" :rules="documentRules" ref="documentFormRef" layout="vertical">
+        <a-form-item label="文档标题" name="title" required>
+          <a-input v-model:value="documentForm.title" placeholder="请输入文档标题" />
         </a-form-item>
-        <a-form-item label="答案" name="answer">
-          <a-textarea v-model:value="faqForm.answer" placeholder="请输入答案" :rows="4" />
+        
+        <a-form-item label="所属目录" name="directoryId" required>
+          <a-tree-select
+            v-model:value="documentForm.directoryId"
+            :tree-data="directoryTreeData"
+            placeholder="请选择所属目录"
+            tree-default-expand-all
+            show-search
+            style="width: 100%"
+          />
         </a-form-item>
-        <a-form-item label="分类" name="category">
-          <a-select v-model:value="faqForm.category" placeholder="请选择分类">
-            <a-select-option value="使用指南">使用指南</a-select-option>
-            <a-select-option value="系统配置">系统配置</a-select-option>
+        
+        <a-form-item label="关联知识库" name="knowledgeBaseIds" required>
+          <a-select
+            v-model:value="documentForm.knowledgeBaseIds"
+            mode="multiple"
+            placeholder="请选择关联知识库"
+            style="width: 100%"
+          >
+            <a-select-option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
+              {{ kb.name }}
+            </a-select-option>
           </a-select>
         </a-form-item>
+        
+        <a-form-item label="文档标签" name="tags">
+          <a-select
+            v-model:value="documentForm.tags"
+            mode="tags"
+            placeholder="请输入标签，按Enter确认"
+            style="width: 100%"
+          />
+        </a-form-item>
       </a-form>
+    </a-modal>
+
+    <!-- FAQ表单弹窗 -->
+    <a-modal
+      v-model:visible="faqModalVisible"
+      :title="faqModalTitle"
+      @ok="handleFAQModalOk"
+      :confirmLoading="faqSubmitting"
+      @cancel="faqModalVisible = false"
+      width="800px"
+    >
+      <a-form :model="faqForm" :rules="faqRules" ref="faqFormRef" layout="vertical">
+        <a-form-item label="问题" name="question" required>
+          <a-input v-model:value="faqForm.question" placeholder="请输入问题" />
+        </a-form-item>
+        
+        <a-form-item label="答案" name="answer" required>
+          <a-textarea v-model:value="faqForm.answer" placeholder="请输入答案" :rows="6" />
+        </a-form-item>
+        
+        <a-form-item label="所属分类" name="categoryId" required>
+          <a-tree-select
+            v-model:value="faqForm.categoryId"
+            :tree-data="categoryTreeData"
+            placeholder="请选择所属分类"
+            tree-default-expand-all
+            show-search
+            style="width: 100%"
+          />
+        </a-form-item>
+        
+        <a-form-item label="关联知识库" name="knowledgeBaseIds" required>
+          <a-select
+            v-model:value="faqForm.knowledgeBaseIds"
+            mode="multiple"
+            placeholder="请选择关联知识库"
+            style="width: 100%"
+          >
+            <a-select-option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
+              {{ kb.name }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
+        
+        <a-form-item label="标签" name="tags">
+          <a-select
+            v-model:value="faqForm.tags"
+            mode="tags"
+            placeholder="请输入标签，按Enter确认"
+            style="width: 100%"
+          />
+        </a-form-item>
+        
+        <a-form-item label="状态" name="status">
+          <a-radio-group v-model:value="faqForm.status">
+            <a-radio value="enabled">启用</a-radio>
+            <a-radio value="disabled">禁用</a-radio>
+          </a-radio-group>
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- 导入FAQ弹窗 -->
+    <a-modal
+      v-model:visible="importFaqModalVisible"
+      title="导入FAQ"
+      :footer="null"
+      @cancel="importFaqModalVisible = false"
+    >
+      <div class="import-modal-content">
+        <a-alert
+          type="info"
+          show-icon
+          message="FAQ导入模板"
+          description="请下载模板，按格式填写FAQ内容后上传导入。"
+          style="margin-bottom: 16px"
+        />
+        
+        <a-button type="link" class="template-download-link">
+          <DownloadOutlined /> 下载Excel导入模板
+        </a-button>
+        
+        <a-divider />
+        
+        <a-form :model="importForm" :rules="importRules" ref="importFormRef" layout="vertical">
+          <a-form-item label="导入至分类" name="categoryId" required>
+            <a-tree-select
+              v-model:value="importForm.categoryId"
+              :tree-data="categoryTreeData"
+              placeholder="请选择目标分类"
+              tree-default-expand-all
+              show-search
+              style="width: 100%"
+            />
+          </a-form-item>
+          
+          <a-form-item label="关联知识库" name="knowledgeBaseIds" required>
+            <a-select
+              v-model:value="importForm.knowledgeBaseIds"
+              mode="multiple"
+              placeholder="请选择关联知识库"
+              style="width: 100%"
+            >
+              <a-select-option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
+                {{ kb.name }}
+              </a-select-option>
+            </a-select>
+          </a-form-item>
+          
+          <a-form-item label="上传文件" name="file" required>
+            <a-upload
+              v-model:fileList="importForm.files"
+              :maxCount="1"
+              :beforeUpload="() => false"
+            >
+              <a-button>
+                <UploadOutlined /> 选择文件
+              </a-button>
+            </a-upload>
+          </a-form-item>
+          
+          <div class="modal-footer">
+            <a-button @click="importFaqModalVisible = false">取消</a-button>
+            <a-button type="primary" :loading="importing" @click="handleSubmitImport">
+              导入
+            </a-button>
+          </div>
+        </a-form>
+      </div>
+    </a-modal>
+
+    <!-- 文档预览弹窗 -->
+    <a-modal
+      v-model:visible="previewModalVisible"
+      :title="previewingDocument?.title"
+      width="800px"
+      @cancel="previewModalVisible = false"
+      :footer="null"
+    >
+      <div class="document-preview">
+        <div v-if="previewLoading" class="preview-loading">
+          <a-spin tip="文档加载中..." />
+        </div>
+        <div v-else class="preview-content">
+          <div v-if="previewError" class="preview-error">
+            <ExclamationCircleOutlined style="font-size: 48px; color: #ff4d4f" />
+            <p>{{ previewError }}</p>
+            <a-button @click="handleDownloadDocument(previewingDocument)">下载文档</a-button>
+          </div>
+          <div v-else class="preview-iframe-container">
+            <iframe :src="previewUrl" width="100%" height="600"></iframe>
+          </div>
+        </div>
+      </div>
     </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { UploadOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { UploadOutlined, PlusOutlined, FileAddOutlined, DownloadOutlined, SearchOutlined, InboxOutlined, ExclamationCircleOutlined, QuestionCircleOutlined, ImportOutlined, FileTextOutlined, FilePdfOutlined, FileExcelOutlined, FilePptOutlined, FileWordOutlined, FileUnknownOutlined } from '@ant-design/icons-vue'
 import type { FormInstance } from 'ant-design-vue'
 import { message } from 'ant-design-vue'
-import SearchComponent from '../components/SearchComponent.vue'
+import DocumentDirectoryTree from '../components/DocumentDirectoryTree.vue'
+import FAQCategoryTree from '../components/FAQCategoryTree.vue'
 
+// ===== 通用状态 =====
 // 标签页激活key
 const activeKey = ref('documents')
 
+// ===== 文档管理部分 =====
 // 加载状态
-const loading = ref(false)
+const documentsLoading = ref(false)
+const directoryLoading = ref(false)
 
-// 文档表格列定义
+// 搜索状态
+const documentSearchText = ref('')
+const isSearching = ref(false)
+
+// 当前选中的目录
+const currentDirectory = ref<any>(null)
+
+// 目录树数据
+const directoryTreeData = ref<any[]>([])
+
+// 文档数据
+const documentsData = ref([
+  {
+    id: 1,
+    title: '产品使用手册',
+    format: 'docx',
+    size: '2.5MB',
+    uploadTime: '2024-01-15',
+    status: 'processed',
+    tags: ['产品', '用户手册'],
+    creator: '张三',
+    directory: '产品文档'
+  },
+  {
+    id: 2,
+    title: '财务报表',
+    format: 'pdf',
+    size: '1.8MB',
+    uploadTime: '2024-01-16',
+    status: 'processing',
+    tags: ['财务', '报表'],
+    creator: '李四',
+    directory: '管理制度'
+  },
+  {
+    id: 3,
+    title: '技术规范说明',
+    format: 'pptx',
+    size: '3.2MB',
+    uploadTime: '2024-01-17',
+    status: 'failed',
+    tags: ['技术', '规范'],
+    creator: '王五',
+    directory: '工艺文档'
+  },
+])
+
+// 过滤后的文档数据
+const filteredDocumentsData = computed(() => {
+  // 根据当前选中目录和搜索条件过滤文档
+  let result = documentsData.value
+  
+  if (currentDirectory.value) {
+    result = result.filter(doc => doc.directory === currentDirectory.value.title)
+  }
+  
+  if (documentSearchText.value) {
+    const search = documentSearchText.value.toLowerCase()
+    result = result.filter(doc => 
+      doc.title.toLowerCase().includes(search) || 
+      doc.tags.some(tag => tag.toLowerCase().includes(search))
+    )
+  }
+  
+  return result
+})
+
+// 文档列表列定义
 const documentsColumns = [
   {
-    title: '文档名称',
-    dataIndex: 'name',
-    key: 'name',
+    title: '文档标题',
+    dataIndex: 'title',
+    key: 'title',
   },
   {
-    title: '格式',
-    dataIndex: 'format',
-    key: 'format',
+    title: '标签',
+    dataIndex: 'tags',
+    key: 'tags',
   },
   {
-    title: '大小',
-    dataIndex: 'size',
-    key: 'size',
+    title: '所属目录',
+    dataIndex: 'directory',
+    key: 'directory',
   },
   {
-    title: '处理状态',
-    dataIndex: 'status',
-    key: 'status',
+    title: '创建人',
+    dataIndex: 'creator',
+    key: 'creator',
   },
   {
-    title: '上传时间',
+    title: '创建时间',
     dataIndex: 'uploadTime',
     key: 'uploadTime',
   },
   {
-    title: '操作',
-    key: 'action',
-    width: 200,
-  },
-]
-
-// FAQ表格列定义
-const faqColumns = [
-  {
-    title: '问题',
-    dataIndex: 'question',
-    key: 'question',
+    title: '文档大小',
+    dataIndex: 'size',
+    key: 'size',
   },
   {
-    title: '分类',
-    dataIndex: 'category',
-    key: 'category',
-  },
-  {
-    title: '更新时间',
-    dataIndex: 'updateTime',
-    key: 'updateTime',
+    title: '状态',
+    dataIndex: 'status',
+    key: 'status',
   },
   {
     title: '操作',
     key: 'action',
-    width: 150,
+    width: 250,
   },
-]
-
-// 模拟数据
-const documentsData = ref([
-  {
-    id: 1,
-    name: '产品使用手册.docx',
-    format: 'Word',
-    size: '2.5MB',
-    uploadTime: '2024-01-15',
-    status: 'processed',
-  },
-  {
-    id: 2,
-    name: '财务报表.pdf',
-    format: 'PDF',
-    size: '1.8MB',
-    uploadTime: '2024-01-16',
-    status: 'processing',
-  },
-  {
-    id: 3,
-    name: '技术规范说明.pptx',
-    format: 'PowerPoint',
-    size: '3.2MB',
-    uploadTime: '2024-01-17',
-    status: 'failed',
-  },
-])
-
-const faqData = ref([
-  {
-    id: 1,
-    question: '如何上传文档？',
-    answer: '点击页面上方的"上传文档"按钮，选择需要上传的文档文件，系统支持Word、PDF、PowerPoint等常见格式。',
-    category: '使用指南',
-    updateTime: '2024-01-15'
-  },
-  {
-    id: 2,
-    question: '支持哪些文档格式？',
-    answer: '系统支持多种常见文档格式，包括：Word (.docx)、PDF (.pdf)、PowerPoint (.pptx)、Excel (.xlsx) 等办公文档格式。',
-    category: '使用指南',
-    updateTime: '2024-01-16'
-  },
-  {
-    id: 3,
-    question: '如何管理敏感词？',
-    answer: '在知识库配置页面的敏感词管理区域，您可以添加、编辑和删除敏感词。每行输入一个敏感词，保存后即可生效。',
-    category: '系统配置',
-    updateTime: '2024-01-17'
-  }
-])
-
-// 文档管理搜索配置
-const documentsSearchFields = [
-  { label: '全部', value: 'all' },
-  { label: '文档名称', value: 'name' },
-  { label: '格式', value: 'format' },
-  { label: '上传时间', value: 'uploadTime' }
-]
-
-const documentsFilters = [
-  {
-    type: 'select' as const,
-    label: '文档格式',
-    field: 'format',
-    options: [
-      { label: 'Word', value: 'Word' },
-      { label: 'PDF', value: 'PDF' },
-      { label: 'PowerPoint', value: 'PowerPoint' },
-      { label: 'Excel', value: 'Excel' },
-      { label: '其他', value: 'other' }
-    ]
-  },
-  {
-    type: 'select' as const,
-    label: '处理状态',
-    field: 'status',
-    options: [
-      { label: '待处理', value: 'pending' },
-      { label: '处理中', value: 'processing' },
-      { label: '已完成', value: 'processed' },
-      { label: '失败', value: 'failed' }
-    ]
-  },
-  {
-    type: 'dateRange' as const,
-    label: '上传时间',
-    field: 'uploadTimeRange',
-    span: 12
-  },
-  {
-    type: 'numberRange' as const,
-    label: '文件大小(MB)',
-    field: 'fileSize',
-    span: 12
-  }
-]
-
-const documentsSortOptions = [
-  { label: '上传时间从新到旧', value: 'uploadTime,desc' },
-  { label: '上传时间从旧到新', value: 'uploadTime,asc' },
-  { label: '文件大小从大到小', value: 'size,desc' },
-  { label: '文件大小从小到大', value: 'size,asc' }
-]
-
-const documentsQuickFilters = [
-  { label: '今日上传', value: { uploadTimeRange: 'today' }, color: 'blue' },
-  { label: '处理失败', value: { status: 'failed' }, color: 'red' },
-  { label: '待处理', value: { status: 'pending' }, color: 'orange' }
-]
-
-// FAQ管理搜索配置
-const faqSearchFields = [
-  { label: '全部', value: 'all' },
-  { label: '问题', value: 'question' },
-  { label: '答案', value: 'answer' },
-  { label: '分类', value: 'category' }
-]
-
-const faqFilters = [
-  {
-    type: 'select' as const,
-    label: '分类',
-    field: 'category',
-    options: [
-      { label: '使用指南', value: '使用指南' },
-      { label: '系统配置', value: '系统配置' }
-    ]
-  },
-  {
-    type: 'dateRange' as const,
-    label: '更新时间',
-    field: 'updateTimeRange',
-    span: 12
-  },
-  {
-    type: 'input' as const,
-    label: '关键词',
-    field: 'keyword',
-    placeholder: '在问题和答案中搜索',
-    span: 12
-  }
-]
-
-const faqSortOptions = [
-  { label: '更新时间从新到旧', value: 'updateTime,desc' },
-  { label: '更新时间从旧到新', value: 'updateTime,asc' }
-]
-
-const faqQuickFilters = [
-  { label: '最近更新', value: { updateTimeRange: 'lastWeek' }, color: 'blue' },
-  { label: '使用指南', value: { category: '使用指南' }, color: 'green' },
-  { label: '系统配置', value: { category: '系统配置' }, color: 'purple' }
 ]
 
 // 文档状态处理
@@ -392,42 +676,383 @@ const getStatusText = (status: string) => {
   return textMap[status] || status
 }
 
-// 文件上传处理
-const handleFileUpload = (info: any) => {
-  if (info.file.status !== 'uploading') {
-    console.log(info.file, info.fileList)
+// 根据文档格式获取对应图标
+const getDocumentIcon = (format: string) => {
+  const formatMap: Record<string, any> = {
+    'pdf': FilePdfOutlined,
+    'docx': FileWordOutlined,
+    'doc': FileWordOutlined,
+    'xlsx': FileExcelOutlined,
+    'xls': FileExcelOutlined,
+    'pptx': FilePptOutlined,
+    'ppt': FilePptOutlined,
+    'txt': FileTextOutlined,
   }
-  if (info.file.status === 'done') {
-    message.success(`${info.file.name} 上传成功`)
-    // 这里可以添加上传成功后的逻辑，如刷新文档列表
-  } else if (info.file.status === 'error') {
-    message.error(`${info.file.name} 上传失败`)
-  }
+  return formatMap[format] || FileUnknownOutlined
 }
+
+// 上传文档相关
+const uploadModalVisible = ref(false)
+const uploading = ref(false)
+const uploadFormRef = ref<FormInstance>()
+const uploadForm = reactive({
+  directoryId: '',
+  knowledgeBaseIds: [] as string[],
+  tags: [] as string[],
+  files: [] as any[],
+})
+
+const uploadRules = {
+  directoryId: [{ required: true, message: '请选择目标目录', trigger: 'change' }],
+  knowledgeBaseIds: [{ required: true, message: '请选择关联知识库', trigger: 'change' }],
+  files: [{ required: true, message: '请上传文档文件', trigger: 'change' }],
+}
+
+// 文档编辑相关
+const documentModalVisible = ref(false)
+const documentSubmitting = ref(false)
+const documentModalTitle = ref('编辑文档')
+const documentFormRef = ref<FormInstance>()
+const documentForm = reactive({
+  id: '',
+  title: '',
+  directoryId: '',
+  knowledgeBaseIds: [] as string[],
+  tags: [] as string[],
+})
+
+const documentRules = {
+  title: [{ required: true, message: '请输入文档标题', trigger: 'blur' }],
+  directoryId: [{ required: true, message: '请选择所属目录', trigger: 'change' }],
+  knowledgeBaseIds: [{ required: true, message: '请选择关联知识库', trigger: 'change' }],
+}
+
+// 文档预览相关
+const previewModalVisible = ref(false)
+const previewingDocument = ref<any>(null)
+const previewLoading = ref(false)
+const previewError = ref<string | null>(null)
+const previewUrl = ref('')
+
+// 知识库列表（模拟数据）
+const knowledgeBases = ref([
+  { id: '1', name: '产品知识库' },
+  { id: '2', name: '技术知识库' },
+  { id: '3', name: '管理知识库' },
+])
+
+// ===== FAQ管理部分 =====
+// 加载状态
+const faqLoading = ref(false)
+const categoryLoading = ref(false)
+
+// 搜索状态
+const faqSearchText = ref('')
+const isSearchingFAQ = ref(false)
+
+// 展开行状态
+const expandedRowKeys = ref<string[]>([])
+
+// 当前选中的分类
+const currentCategory = ref<any>(null)
+
+// 分类树数据
+const categoryTreeData = ref<any[]>([])
+
+// FAQ数据
+const faqData = ref([
+  {
+    id: 1,
+    question: '如何上传文档？',
+    answer: '点击页面上方的"上传文档"按钮，选择需要上传的文档文件，系统支持Word、PDF、PowerPoint等常见格式。',
+    category: '使用指南',
+    updateTime: '2024-01-15',
+    tags: ['文档', '上传'],
+    status: 'enabled'
+  },
+  {
+    id: 2,
+    question: '支持哪些文档格式？',
+    answer: '系统支持多种常见文档格式，包括：Word (.docx)、PDF (.pdf)、PowerPoint (.pptx)、Excel (.xlsx) 等办公文档格式。',
+    category: '使用指南',
+    updateTime: '2024-01-16',
+    tags: ['文档', '格式'],
+    status: 'enabled'
+  },
+  {
+    id: 3,
+    question: '如何管理敏感词？',
+    answer: '在知识库配置页面的敏感词管理区域，您可以添加、编辑和删除敏感词。每行输入一个敏感词，保存后即可生效。',
+    category: '系统配置',
+    updateTime: '2024-01-17',
+    tags: ['敏感词', '配置'],
+    status: 'disabled'
+  },
+])
+
+// 过滤后的FAQ数据
+const filteredFAQData = computed(() => {
+  // 根据当前选中分类和搜索条件过滤FAQ
+  let result = faqData.value
+  
+  if (currentCategory.value) {
+    result = result.filter(faq => faq.category === currentCategory.value.title)
+  }
+  
+  if (faqSearchText.value) {
+    const search = faqSearchText.value.toLowerCase()
+    result = result.filter(faq => 
+      faq.question.toLowerCase().includes(search) || 
+      faq.answer.toLowerCase().includes(search) ||
+      faq.tags.some(tag => tag.toLowerCase().includes(search))
+    )
+  }
+  
+  return result
+})
+
+// FAQ列表列定义
+const faqColumns = [
+  {
+    title: '问题',
+    dataIndex: 'question',
+    key: 'question',
+    width: '40%',
+  },
+  {
+    title: '分类',
+    dataIndex: 'category',
+    key: 'category',
+  },
+  {
+    title: '标签',
+    dataIndex: 'tags',
+    key: 'tags',
+  },
+  {
+    title: '状态',
+    dataIndex: 'status',
+    key: 'status',
+  },
+  {
+    title: '更新时间',
+    dataIndex: 'updateTime',
+    key: 'updateTime',
+  },
+  {
+    title: '操作',
+    key: 'action',
+    width: 220,
+  },
+]
 
 // FAQ表单相关
 const faqModalVisible = ref(false)
+const faqSubmitting = ref(false)
 const faqModalTitle = ref('新增FAQ')
 const faqFormRef = ref<FormInstance>()
 const faqForm = reactive({
-  id: 0,
+  id: '',
   question: '',
   answer: '',
-  category: '',
+  categoryId: '',
+  knowledgeBaseIds: [] as string[],
+  tags: [] as string[],
+  status: 'enabled',
 })
+
 const faqRules = {
   question: [{ required: true, message: '请输入问题', trigger: 'blur' }],
   answer: [{ required: true, message: '请输入答案', trigger: 'blur' }],
-  category: [{ required: true, message: '请选择分类', trigger: 'change' }],
+  categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }],
+  knowledgeBaseIds: [{ required: true, message: '请选择关联知识库', trigger: 'change' }],
 }
 
-// 处理FAQ相关操作
+// FAQ导入相关
+const importFaqModalVisible = ref(false)
+const importing = ref(false)
+const importFormRef = ref<FormInstance>()
+const importForm = reactive({
+  categoryId: '',
+  knowledgeBaseIds: [] as string[],
+  files: [] as any[],
+})
+
+const importRules = {
+  categoryId: [{ required: true, message: '请选择目标分类', trigger: 'change' }],
+  knowledgeBaseIds: [{ required: true, message: '请选择关联知识库', trigger: 'change' }],
+  files: [{ required: true, message: '请上传文件', trigger: 'change' }],
+}
+
+// ===== 方法定义 =====
+// 目录树相关方法
+const handleDirectorySelect = (key: string, node: any) => {
+  currentDirectory.value = node
+  isSearching.value = false
+  documentSearchText.value = ''
+}
+
+const handleAddDirectory = (directory: any) => {
+  // 实际应用中，这里应该调用API保存目录
+  message.success(`目录 "${directory.title}" 添加成功`)
+}
+
+const handleEditDirectory = (directory: any) => {
+  // 实际应用中，这里应该调用API更新目录
+  message.success(`目录 "${directory.title}" 更新成功`)
+}
+
+const handleDeleteDirectory = (key: string) => {
+  // 实际应用中，这里应该调用API删除目录
+  message.success('目录删除成功')
+}
+
+// 文档相关方法
+const handleDocumentSearch = (value: string) => {
+  documentSearchText.value = value
+  isSearching.value = !!value
+}
+
+const handleUploadDocument = () => {
+  // 初始化上传表单
+  uploadForm.directoryId = currentDirectory.value?.key || ''
+  uploadForm.knowledgeBaseIds = []
+  uploadForm.tags = []
+  uploadForm.files = []
+  
+  uploadModalVisible.value = true
+}
+
+const handleSubmitUpload = () => {
+  uploadFormRef.value?.validate().then(() => {
+    // 模拟上传
+    uploading.value = true
+    setTimeout(() => {
+      uploading.value = false
+      uploadModalVisible.value = false
+      message.success('文档上传成功')
+      // 实际应用中，这里应该调用API上传文档并刷新文档列表
+    }, 1500)
+  }).catch(err => {
+    console.error('表单验证失败:', err)
+  })
+}
+
+const handleBeforeUpload = () => {
+  return false // 阻止自动上传，由我们手动处理
+}
+
+const handleUploadChange = (info: any) => {
+  // 处理上传状态变化
+  if (info.file.status !== 'uploading') {
+    console.log(info.file, info.fileList)
+  }
+}
+
+const handleCreateDocument = () => {
+  documentModalTitle.value = '新建文档'
+  documentForm.id = ''
+  documentForm.title = ''
+  documentForm.directoryId = currentDirectory.value?.key || ''
+  documentForm.knowledgeBaseIds = []
+  documentForm.tags = []
+  
+  documentModalVisible.value = true
+}
+
+const handleEditDocument = (record: any) => {
+  documentModalTitle.value = '编辑文档'
+  documentForm.id = record.id
+  documentForm.title = record.title
+  documentForm.directoryId = record.directoryId || ''
+  documentForm.knowledgeBaseIds = record.knowledgeBaseIds || []
+  documentForm.tags = record.tags || []
+  
+  documentModalVisible.value = true
+}
+
+const handleDocumentModalOk = () => {
+  documentFormRef.value?.validate().then(() => {
+    // 模拟保存
+    documentSubmitting.value = true
+    setTimeout(() => {
+      documentSubmitting.value = false
+      documentModalVisible.value = false
+      message.success('文档保存成功')
+      // 实际应用中，这里应该调用API保存文档并刷新文档列表
+    }, 1000)
+  }).catch(err => {
+    console.error('表单验证失败:', err)
+  })
+}
+
+const handleViewDocument = (record: any) => {
+  previewingDocument.value = record
+  previewLoading.value = true
+  previewError.value = null
+  previewModalVisible.value = true
+  
+  // 模拟加载预览
+  setTimeout(() => {
+    previewLoading.value = false
+    
+    // 模拟成功或失败的预览
+    if (record.status === 'processed') {
+      previewUrl.value = `https://example.com/preview/${record.id}`
+    } else {
+      previewError.value = '该文档尚未处理完成，无法预览'
+    }
+  }, 1500)
+}
+
+const handleDownloadDocument = (record: any) => {
+  // 实际应用中，这里应该调用API下载文档
+  message.success(`文档 "${record.title}" 下载中...`)
+}
+
+const handleDeleteDocument = (record: any) => {
+  // 实际应用中，这里应该调用API删除文档
+  message.success(`文档 "${record.title}" 已删除`)
+}
+
+// FAQ分类相关方法
+const handleCategorySelect = (key: string, node: any) => {
+  currentCategory.value = node
+  isSearchingFAQ.value = false
+  faqSearchText.value = ''
+}
+
+const handleAddCategory = (category: any) => {
+  // 实际应用中，这里应该调用API保存分类
+  message.success(`分类 "${category.title}" 添加成功`)
+}
+
+const handleEditCategory = (category: any) => {
+  // 实际应用中，这里应该调用API更新分类
+  message.success(`分类 "${category.title}" 更新成功`)
+}
+
+const handleDeleteCategory = (key: string) => {
+  // 实际应用中，这里应该调用API删除分类
+  message.success('分类删除成功')
+}
+
+// FAQ相关方法
+const handleFAQSearch = (value: string) => {
+  faqSearchText.value = value
+  isSearchingFAQ.value = !!value
+}
+
 const handleAddFAQ = () => {
-  faqModalTitle.value = '新增FAQ'
-  faqForm.id = 0
+  faqModalTitle.value = '新建FAQ'
+  faqForm.id = ''
   faqForm.question = ''
   faqForm.answer = ''
-  faqForm.category = ''
+  faqForm.categoryId = currentCategory.value?.key || ''
+  faqForm.knowledgeBaseIds = []
+  faqForm.tags = []
+  faqForm.status = 'enabled'
+  
   faqModalVisible.value = true
 }
 
@@ -436,137 +1061,192 @@ const handleEditFAQ = (record: any) => {
   faqForm.id = record.id
   faqForm.question = record.question
   faqForm.answer = record.answer
-  faqForm.category = record.category
+  faqForm.categoryId = record.categoryId || ''
+  faqForm.knowledgeBaseIds = record.knowledgeBaseIds || []
+  faqForm.tags = record.tags || []
+  faqForm.status = record.status
+  
   faqModalVisible.value = true
 }
 
 const handleFAQModalOk = () => {
   faqFormRef.value?.validate().then(() => {
-    // 这里可以添加保存FAQ的逻辑
-    if (faqForm.id === 0) {
-      // 新增
-      message.success('新增FAQ成功')
-    } else {
-      // 编辑
-      message.success('编辑FAQ成功')
-    }
+    // 模拟保存
+    faqSubmitting.value = true
+    setTimeout(() => {
+      faqSubmitting.value = false
     faqModalVisible.value = false
-  }).catch(error => {
-    console.error('验证失败:', error)
+      message.success('FAQ保存成功')
+      // 实际应用中，这里应该调用API保存FAQ并刷新FAQ列表
+    }, 1000)
+  }).catch(err => {
+    console.error('表单验证失败:', err)
   })
 }
 
 const handleDeleteFAQ = (record: any) => {
-  // 这里可以添加删除FAQ的逻辑
-  message.success(`删除FAQ "${record.question}" 成功`)
+  // 实际应用中，这里应该调用API删除FAQ
+  message.success(`FAQ "${record.question}" 已删除`)
 }
 
-// 文档操作处理
-const handleDownloadDoc = (record: any) => {
-  // 这里可以添加下载文档的逻辑
-  message.success(`下载文档 "${record.name}" 中...`)
+const handleToggleFAQStatus = (record: any) => {
+  const newStatus = record.status === 'enabled' ? 'disabled' : 'enabled'
+  // 实际应用中，这里应该调用API更新FAQ状态
+  message.success(`FAQ "${record.question}" 已${newStatus === 'enabled' ? '启用' : '禁用'}`)
 }
 
-const handleViewDoc = (record: any) => {
-  // 这里可以添加查看文档的逻辑，如打开预览弹窗
-  message.info(`查看文档 "${record.name}"`)
+const handleImportFAQ = () => {
+  importForm.categoryId = currentCategory.value?.key || ''
+  importForm.knowledgeBaseIds = []
+  importForm.files = []
+  
+  importFaqModalVisible.value = true
 }
 
-const handleDeleteDoc = (record: any) => {
-  // 这里可以添加删除文档的逻辑
-  message.success(`删除文档 "${record.name}" 成功`)
+const handleSubmitImport = () => {
+  importFormRef.value?.validate().then(() => {
+    // 模拟导入
+    importing.value = true
+    setTimeout(() => {
+      importing.value = false
+      importFaqModalVisible.value = false
+      message.success('FAQ导入成功')
+      // 实际应用中，这里应该调用API导入FAQ并刷新FAQ列表
+    }, 1500)
+  }).catch(err => {
+    console.error('表单验证失败:', err)
+  })
 }
 
-// 搜索处理函数
-const handleDocumentsSearch = (searchParams: any) => {
-  console.log('文档搜索条件:', searchParams)
-  // 这里可以添加根据搜索条件过滤文档数据的逻辑
-  message.info(`执行文档搜索: ${JSON.stringify(searchParams)}`)
-}
-
-const handleDocumentsFilter = (filterParams: any) => {
-  console.log('文档筛选条件:', filterParams)
-  // 这里可以添加根据筛选条件过滤文档数据的逻辑
-  message.info(`应用文档筛选: ${JSON.stringify(filterParams)}`)
-}
-
-const handleDocumentsExport = (params: any) => {
-  console.log('导出文档:', params)
-  // 这里可以添加导出文档数据的逻辑
-  message.success('文档数据导出成功')
-}
-
-const handleFAQSearch = (searchParams: any) => {
-  console.log('FAQ搜索条件:', searchParams)
-  // 这里可以添加根据搜索条件过滤FAQ数据的逻辑
-  message.info(`执行FAQ搜索: ${JSON.stringify(searchParams)}`)
-}
-
-const handleFAQFilter = (filterParams: any) => {
-  console.log('FAQ筛选条件:', filterParams)
-  // 这里可以添加根据筛选条件过滤FAQ数据的逻辑
-  message.info(`应用FAQ筛选: ${JSON.stringify(filterParams)}`)
-}
-
-const handleSaveFilter = (filter: any) => {
-  console.log('保存筛选条件:', filter)
-  // 这里可以添加保存筛选条件的逻辑
-  message.success(`筛选条件 "${filter.name}" 已保存`)
-}
+// 初始化加载
+onMounted(() => {
+  // 这里可以添加初始化加载数据的逻辑
+})
 </script>
 
 <style lang="scss" scoped>
 .knowledge-management {
   padding: 24px;
-  
+
   .knowledge-tabs {
     margin-top: 16px;
   }
-  
-  :deep(.ant-card) {
-    margin-top: 16px;
-  }
-  
-  .card-content {
-    margin-bottom: 16px;
-  }
-  
-  .header-actions {
+
+  // 文档管理样式
+  .document-management-container,
+  .faq-management-container {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
+    height: calc(100vh - 200px);
+    min-height: 600px;
     
-    .search-wrapper {
-      width: 70%;
-      max-width: 800px;
+    .directory-tree-container,
+    .category-tree-container {
+      width: 250px;
+      padding-right: 16px;
+      height: 100%;
+      overflow-y: auto;
     }
     
-    .action-wrapper {
-      display: flex;
-      justify-content: flex-end;
+    .document-list-container,
+    .faq-list-container {
+      flex: 1;
+      
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        
+        .header-title {
+          .current-directory,
+          .current-category {
+            font-size: 16px;
+            font-weight: 500;
+            margin-right: 8px;
+          }
+          
+          .document-count,
+          .faq-count {
+            color: #666;
+            font-size: 14px;
+          }
+        }
+      }
+      
+      .action-buttons {
+        margin-bottom: 16px;
+        
+        .ant-btn {
+          margin-right: 12px;
+        }
+      }
+      
+      .empty-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 48px 0;
+        
+        p {
+    margin-top: 16px;
+          color: #666;
+        }
+      }
+      
+      .document-title,
+      .faq-question {
+        display: flex;
+        align-items: center;
+      }
     }
   }
   
-  .add-button {
-    margin-left: 16px;
+  // 上传弹窗样式
+  .upload-modal-content,
+  .import-modal-content {
+    .template-download-link {
+      padding-left: 0;
+    }
+    
+    .modal-footer {
+      margin-top: 24px;
+      text-align: right;
+      
+      .ant-btn {
+        margin-left: 8px;
+      }
+    }
   }
   
-  // 修改搜索组件样式
-  :deep(.custom-search-component) {
-    width: 100%;
-    
-    .ant-input-group {
+  // 文档预览弹窗样式
+  .document-preview {
+    .preview-loading {
       display: flex;
+      justify-content: center;
       align-items: center;
+      height: 400px;
     }
     
-    .ant-input-search {
-      width: 100%;
+    .preview-error {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 0;
+      
+      p {
+        margin: 16px 0;
+        color: #666;
+      }
     }
     
-    .ant-btn {
-      height: 32px;
+    .preview-iframe-container {
+      height: 600px;
+      
+      iframe {
+        border: none;
+      }
     }
   }
 }

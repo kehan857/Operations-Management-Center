@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import KnowledgeManagement from '../views/KnowledgeManagement.vue'
+import HelpCenter from '../views/HelpCenter.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -10,52 +12,52 @@ const router = createRouter({
     {
       path: '/dashboard',
       name: 'Dashboard',
-      component: () => import('@/views/Dashboard.vue')
+      component: () => import('../views/Dashboard.vue')
     },
     {
       path: '/users',
       name: 'Users',
-      component: () => import('@/views/Users.vue')
+      component: () => import('../views/Users.vue')
     },
     {
       path: '/verification',
       name: 'Verification',
-      component: () => import('@/views/Verification.vue')
+      component: () => import('../views/Verification.vue')
     },
     {
       path: '/subscriptions',
       name: 'Subscriptions',
-      component: () => import('@/views/Subscriptions.vue')
+      component: () => import('../views/Subscriptions.vue')
     },
     {
       path: '/orders',
       name: 'Orders',
-      component: () => import('@/views/Orders.vue')
+      component: () => import('../views/Orders.vue')
     },
     {
       path: '/data-management',
       name: 'DataManagement',
-      component: () => import('@/views/DataManagement.vue')
+      component: () => import('../views/DataManagement.vue')
     },
     {
       path: '/knowledge-management',
       name: 'KnowledgeManagement',
-      component: () => import('@/views/KnowledgeManagement.vue')
+      component: KnowledgeManagement
     },
     {
       path: '/agent-management',
       name: 'AgentManagement',
-      component: () => import('@/views/AgentManagement.vue')
+      component: () => import('../views/AgentManagement.vue')
     },
     {
       path: '/roles',
       name: 'Roles',
-      component: () => import('@/views/Roles.vue')
+      component: () => import('../views/Roles.vue')
     },
     {
       path: '/help-center',
       name: 'HelpCenter',
-      component: () => import('@/views/HelpCenter.vue')
+      component: HelpCenter
     }
   ]
 })

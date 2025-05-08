@@ -153,6 +153,209 @@
             </a-button>
           </a-space>
         </a-form-item>
+        
+        <!-- 功能权限配置区域 -->
+        <a-form-item label="功能权限配置" name="permissions">
+          <div class="permissions-config">
+            <div class="permissions-header">
+              <a-input-search
+                v-model:value="permissionSearchText"
+                placeholder="搜索功能名称或描述"
+                @change="handlePermissionSearch"
+                style="width: 300px;"
+              />
+            </div>
+            
+            <div class="permissions-list">
+              <!-- 基础资源配额 -->
+              <a-card title="基础资源配额" class="permission-card" v-if="showGroup('pg-1')">
+                <a-table 
+                  :columns="permissionColumns" 
+                  :data-source="getGroupPermissions('pg-1')"
+                  :pagination="false"
+                  :rowKey="(record: any) => record.id"
+                >
+                  <template #bodyCell="{ column, record }: { column: any, record: any }">
+                    <template v-if="column.dataIndex === 'control'">
+                      <!-- 数字输入控件 -->
+                      <a-input-number
+                        v-if="record.type === 'number'"
+                        v-model:value="formState.permissions[record.id]"
+                        :min="record.min"
+                        :max="record.max"
+                        :step="record.step"
+                        style="width: 150px;"
+                      />
+                      
+                      <!-- 滑块控件 -->
+                      <div v-else-if="record.type === 'slider'" class="slider-with-input">
+                        <a-slider
+                          v-model:value="formState.permissions[record.id]"
+                          :min="record.min"
+                          :max="record.max"
+                          style="width: 200px; margin-right: 16px;"
+                          :disabled="formState.permissions[record.id] === -1"
+                        />
+                        <div class="input-with-checkbox">
+                          <a-input-number
+                            v-if="formState.permissions[record.id] !== -1"
+                            v-model:value="formState.permissions[record.id]"
+                            :min="record.min"
+                            :max="record.max"
+                            style="width: 100px;"
+                            :addon-after="record.unit || ''"
+                          />
+                          <span v-else class="unlimited-text">无限制</span>
+                          
+                          <a-checkbox 
+                            v-if="record.specialOptions"
+                            :checked="formState.permissions[record.id] === -1"
+                            style="margin-left: 8px;"
+                            @change="e => formState.permissions[record.id] = e.target.checked ? -1 : record.default"
+                          >
+                            无限制
+                          </a-checkbox>
+                        </div>
+                      </div>
+                      
+                      <!-- 复选框控件 -->
+                      <a-checkbox-group 
+                        v-else-if="record.type === 'checkbox'"
+                        v-model:value="formState.permissions[record.id]" 
+                        :options="record.options"
+                      />
+                    </template>
+                  </template>
+                </a-table>
+              </a-card>
+              
+              <!-- Agent功能 -->
+              <a-card title="Agent功能" class="permission-card" v-if="showGroup('pg-2')">
+                <a-table 
+                  :columns="permissionColumns" 
+                  :data-source="getGroupPermissions('pg-2')"
+                  :pagination="false"
+                  :rowKey="(record: any) => record.id"
+                >
+                  <template #bodyCell="{ column, record }: { column: any, record: any }">
+                    <template v-if="column.dataIndex === 'control'">
+                      <!-- 数字输入控件 -->
+                      <a-input-number
+                        v-if="record.type === 'number'"
+                        v-model:value="formState.permissions[record.id]"
+                        :min="record.min"
+                        :max="record.max"
+                        :step="record.step"
+                        style="width: 150px;"
+                      />
+                      
+                      <!-- 滑块控件 -->
+                      <div v-else-if="record.type === 'slider'" class="slider-with-input">
+                        <a-slider
+                          v-model:value="formState.permissions[record.id]"
+                          :min="record.min"
+                          :max="record.max"
+                          style="width: 200px; margin-right: 16px;"
+                          :disabled="formState.permissions[record.id] === -1"
+                        />
+                        <div class="input-with-checkbox">
+                          <a-input-number
+                            v-if="formState.permissions[record.id] !== -1"
+                            v-model:value="formState.permissions[record.id]"
+                            :min="record.min"
+                            :max="record.max"
+                            style="width: 100px;"
+                            :addon-after="record.unit || ''"
+                          />
+                          <span v-else class="unlimited-text">无限制</span>
+                          
+                          <a-checkbox 
+                            v-if="record.specialOptions"
+                            :checked="formState.permissions[record.id] === -1"
+                            style="margin-left: 8px;"
+                            @change="e => formState.permissions[record.id] = e.target.checked ? -1 : record.default"
+                          >
+                            无限制
+                          </a-checkbox>
+                        </div>
+                      </div>
+                      
+                      <!-- 复选框控件 -->
+                      <a-checkbox-group 
+                        v-else-if="record.type === 'checkbox'"
+                        v-model:value="formState.permissions[record.id]" 
+                        :options="record.options"
+                      />
+                    </template>
+                  </template>
+                </a-table>
+              </a-card>
+              
+              <!-- 业务功能 -->
+              <a-card title="业务功能" class="permission-card" v-if="showGroup('pg-4')">
+                <a-table 
+                  :columns="permissionColumns" 
+                  :data-source="getGroupPermissions('pg-4')"
+                  :pagination="false"
+                  :rowKey="(record: any) => record.id"
+                >
+                  <template #bodyCell="{ column, record }: { column: any, record: any }">
+                    <template v-if="column.dataIndex === 'control'">
+                      <!-- 数字输入控件 -->
+                      <a-input-number
+                        v-if="record.type === 'number'"
+                        v-model:value="formState.permissions[record.id]"
+                        :min="record.min"
+                        :max="record.max"
+                        :step="record.step"
+                        style="width: 150px;"
+                      />
+                      
+                      <!-- 滑块控件 -->
+                      <div v-else-if="record.type === 'slider'" class="slider-with-input">
+                        <a-slider
+                          v-model:value="formState.permissions[record.id]"
+                          :min="record.min"
+                          :max="record.max"
+                          style="width: 200px; margin-right: 16px;"
+                          :disabled="formState.permissions[record.id] === -1"
+                        />
+                        <div class="input-with-checkbox">
+                          <a-input-number
+                            v-if="formState.permissions[record.id] !== -1"
+                            v-model:value="formState.permissions[record.id]"
+                            :min="record.min"
+                            :max="record.max"
+                            style="width: 100px;"
+                            :addon-after="record.unit || ''"
+                          />
+                          <span v-else class="unlimited-text">无限制</span>
+                          
+                          <a-checkbox 
+                            v-if="record.specialOptions"
+                            :checked="formState.permissions[record.id] === -1"
+                            style="margin-left: 8px;"
+                            @change="e => formState.permissions[record.id] = e.target.checked ? -1 : record.default"
+                          >
+                            无限制
+                          </a-checkbox>
+                        </div>
+                      </div>
+                      
+                      <!-- 复选框控件 -->
+                      <a-checkbox-group 
+                        v-else-if="record.type === 'checkbox'"
+                        v-model:value="formState.permissions[record.id]" 
+                        :options="record.options"
+                      />
+                    </template>
+                  </template>
+                </a-table>
+              </a-card>
+            </div>
+          </div>
+        </a-form-item>
+        
         <a-form-item name="isRecommended">
           <a-checkbox v-model:checked="formState.isRecommended">设为推荐方案（每个系统仅支持一个推荐方案）</a-checkbox>
         </a-form-item>
@@ -162,8 +365,8 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive } from 'vue'
-import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons-vue'
+import { ref, reactive, computed, h } from 'vue'
+import { PlusOutlined, MinusCircleOutlined, EditOutlined, SlidersFilled } from '@ant-design/icons-vue'
 import type { FormInstance } from 'ant-design-vue'
 import SearchComponent from '../components/SearchComponent.vue'
 
@@ -235,7 +438,7 @@ const plans = ref([
     description: '适合小型企业使用的基础功能套餐',
     monthlyPrice: 999,
     yearlyPrice: 9999,
-    features: ['数据分析', '基础报表', '在线支持'],
+    features: ['数据分析', '基础报表', '在线支持', '最多10个用户'],
     status: '已上线'
   },
   {
@@ -244,8 +447,18 @@ const plans = ref([
     description: '适合中型企业使用的专业功能套餐',
     monthlyPrice: 1999,
     yearlyPrice: 19999,
-    features: ['数据分析', '高级报表', '在线支持', 'API接口', '自定义仪表盘'],
+    features: ['数据分析', '高级报表', '在线支持', 'API接口', '自定义仪表盘', '最多50个用户'],
     status: '已上线'
+  },
+  {
+    id: 3,
+    name: '企业版',
+    description: '适合大型企业使用的全功能套餐',
+    monthlyPrice: 4999,
+    yearlyPrice: 49999,
+    features: ['数据分析', '高级报表', '在线支持', 'API接口', '自定义仪表盘', '多场景工作流', '高级权限控制', '专属客户经理', '无限用户数'],
+    status: '已上线',
+    isRecommended: true
   }
 ])
 
@@ -264,6 +477,7 @@ const formState = reactive({
   monthlyPrice: 0,
   yearlyPrice: 0,
   features: [''] as string[],
+  permissions: {} as Record<string, any>,
   isRecommended: false
 })
 
@@ -339,30 +553,83 @@ const quickFilters = [
 const showAddPlanModal = () => {
   modalMode.value = 'add'
   modalVisible.value = true
+  
+  // 预设权限配置
+  const permissionsConfig: Record<string, any> = {
+    'p-8': 10 // 默认设置为10个用户
+  }
+  
   Object.assign(formState, {
     name: '',
+    system: 'enterprise_brain',
+    targetUser: '',
+    tokenLimit: 0,
     description: '',
     monthlyPrice: 0,
     yearlyPrice: 0,
-    features: [''] as string[]
+    features: [''] as string[],
+    permissions: permissionsConfig,
+    isRecommended: false
   })
 }
 
 const showEditModal = (record: any) => {
   modalMode.value = 'edit'
   modalVisible.value = true
+  
+  // 预设权限配置
+  const permissionsConfig: Record<string, any> = {}
+  
+  // 根据套餐名称预设用户数量
+  if (record.name === '基础版') {
+    permissionsConfig['p-8'] = 10 // 基础版10个用户
+  } else if (record.name === '专业版') {
+    permissionsConfig['p-8'] = 50 // 专业版50个用户
+  } else if (record.name === '企业版') {
+    permissionsConfig['p-8'] = -1 // 企业版无限用户
+  }
+  
   Object.assign(formState, {
     name: record.name,
     description: record.description,
+    system: record.system || 'enterprise_brain',
+    targetUser: record.targetUser || '',
+    tokenLimit: record.tokenLimit || 0,
     monthlyPrice: record.monthlyPrice,
     yearlyPrice: record.yearlyPrice,
-    features: [...record.features]
+    features: [...record.features],
+    permissions: permissionsConfig,
+    isRecommended: record.isRecommended || false
   })
 }
 
 const handleModalOk = () => {
   formRef.value?.validate().then(() => {
     console.log('form:', formState)
+    
+    // 检查是否已经包含用户数限制的描述
+    const userLimitFeatureIndex = formState.features.findIndex(feature => 
+      feature.includes('用户') && (feature.includes('限制') || feature.includes('最多') || feature.includes('无限'))
+    )
+    
+    // 根据用户数限制添加或更新功能特性描述
+    const userLimit = formState.permissions['p-8']
+    let userLimitFeature = ''
+    
+    if (userLimit === -1) {
+      userLimitFeature = '无限用户数'
+    } else {
+      userLimitFeature = `最多${userLimit}个用户`
+    }
+    
+    if (userLimitFeatureIndex >= 0) {
+      // 更新现有描述
+      formState.features[userLimitFeatureIndex] = userLimitFeature
+    } else {
+      // 添加新描述
+      formState.features.push(userLimitFeature)
+    }
+    
     // 实现添加/编辑套餐逻辑
     modalVisible.value = false
   })
@@ -411,6 +678,198 @@ const handleSaveFilter = (filter: any) => {
   console.log('保存筛选条件:', filter)
   // 保存筛选条件
 }
+
+// 功能权限配置相关
+const permissionSearchText = ref('')
+const activePermissionGroups = ref<string[]>(['pg-1', 'pg-2'])
+
+// 权限组配置
+const permissionGroups = [
+  {
+    id: 'pg-1',
+    name: '基础资源配额',
+    permissions: [
+      {
+        id: 'p-1',
+        name: '数据源连接数',
+        description: '允许用户配置的最大数据源数量',
+        type: 'number',
+        min: 1,
+        max: 100,
+        step: 1,
+        default: 5
+      },
+      {
+        id: 'p-2',
+        name: '知识库容量',
+        description: '知识库最大存储空间',
+        type: 'slider',
+        min: 1,
+        max: 100,
+        unit: 'GB',
+        default: 10
+      },
+      {
+        id: 'p-3',
+        name: 'API调用次数',
+        description: '每日API调用限额',
+        type: 'number',
+        min: 1000,
+        max: 1000000,
+        step: 1000,
+        default: 10000
+      },
+      {
+        id: 'p-11',
+        name: 'Token额度',
+        description: '允许用户使用的最大Token数量',
+        type: 'slider',
+        min: 0,
+        max: 1000,
+        unit: 'k',
+        default: 0
+      }
+    ]
+  },
+  {
+    id: 'pg-2',
+    name: 'Agent功能',
+    permissions: [
+      {
+        id: 'p-4',
+        name: '可用Agent模板',
+        description: '允许使用的Agent模板列表',
+        type: 'checkbox',
+        options: [
+          { label: '客服Agent', value: 'agent-customer-service' },
+          { label: '销售Agent', value: 'agent-sales' },
+          { label: '数据分析Agent', value: 'agent-data-analysis' },
+          { label: '文档摘要Agent', value: 'agent-document-summary' },
+          { label: '市场调研Agent', value: 'agent-market-research' }
+        ],
+        default: ['agent-customer-service']
+      },
+      {
+        id: 'p-5',
+        name: 'Agent使用次数',
+        description: '每月可使用的Agent调用次数',
+        type: 'number',
+        min: 100,
+        max: 10000,
+        step: 100,
+        default: 500
+      }
+    ]
+  },
+  {
+    id: 'pg-4',
+    name: '业务功能',
+    permissions: [
+      {
+        id: 'p-8',
+        name: '用户数量',
+        description: '允许的最大用户数量（设置为-1表示无限制）',
+        type: 'slider',
+        min: 5,
+        max: 1000,
+        default: 10,
+        specialOptions: [
+          { label: '无限制', value: -1 }
+        ]
+      },
+      {
+        id: 'p-10',
+        name: '业务功能模块',
+        description: '可访问的业务功能模块',
+        type: 'checkbox',
+        options: [
+          { label: '智能分析中心', value: 'analysis-center' },
+          { label: '智能告警中心', value: 'alert-center' },
+          { label: '智能预测中心', value: 'forecast-center' }
+        ],
+        default: []
+      }
+    ]
+  }
+]
+
+// 根据搜索过滤权限组
+const filteredPermissionGroups = computed(() => {
+  return permissionGroups.filter(group => {
+    // 如果有搜索文本，检查是否任何权限匹配搜索
+    if (permissionSearchText.value) {
+      return group.permissions.some(p => matchesPermissionSearch(p))
+    }
+    
+    return true
+  })
+})
+
+// 检查权限是否匹配搜索文本
+const matchesPermissionSearch = (permission: any) => {
+  if (!permissionSearchText.value) return true
+  
+  const searchText = permissionSearchText.value.toLowerCase()
+  return (
+    permission.name.toLowerCase().includes(searchText) ||
+    permission.description.toLowerCase().includes(searchText)
+  )
+}
+
+// 处理权限搜索
+const handlePermissionSearch = () => {
+  // 搜索时可能需要展开所有分组
+  if (permissionSearchText.value) {
+    activePermissionGroups.value = permissionGroups.map(g => g.id)
+  }
+}
+
+// 渲染不同类型的权限配置控件 - 设置默认值
+const renderPermissionItem = (item: any) => {
+  // 初始化权限的默认值
+  if (modalMode.value === 'add' && formState.permissions[item.id] === undefined) {
+    formState.permissions[item.id] = item.default
+  }
+  return item
+}
+
+// 根据权限组ID获取权限列表
+const getGroupPermissions = (groupId: string) => {
+  const group = permissionGroups.find(g => g.id === groupId)
+  return group?.permissions.filter(matchesPermissionSearch).map(renderPermissionItem) || []
+}
+
+// 根据权限组ID判断是否显示
+const showGroup = (groupId: string) => {
+  // 如果没有搜索条件或者组内有匹配项
+  const group = permissionGroups.find(g => g.id === groupId)
+  if (!permissionSearchText.value || (group && group.permissions.some(matchesPermissionSearch))) {
+    return true
+  }
+  return false
+}
+
+// 权限列配置
+const permissionColumns = [
+  {
+    title: '功能名称',
+    dataIndex: 'name',
+    key: 'name',
+    width: '25%'
+  },
+  {
+    title: '功能描述',
+    dataIndex: 'description',
+    key: 'description',
+    width: '40%'
+  },
+  {
+    title: '控制',
+    dataIndex: 'control',
+    key: 'control',
+    width: '35%'
+  }
+]
 </script>
 
 <style lang="less" scoped>
@@ -461,6 +920,56 @@ const handleSaveFilter = (filter: any) => {
     
     .ant-btn {
       height: 32px;
+    }
+  }
+  
+  // 权限配置样式
+  .permissions-config {
+    border: 1px solid #f0f0f0;
+    border-radius: 4px;
+    padding: 16px;
+    background-color: #fafafa;
+    
+    .permissions-header {
+      display: flex;
+      margin-bottom: 16px;
+    }
+    
+    .permissions-list {
+      margin-top: 8px;
+      
+      .permission-card {
+        margin-bottom: 16px;
+        
+        :deep(.ant-card-head) {
+          background-color: #f9f9f9;
+        }
+        
+        :deep(.ant-table-thead > tr > th) {
+          background-color: #f5f5f5;
+        }
+        
+        :deep(.ant-table-row:hover) {
+          background-color: #f0f7ff;
+        }
+      }
+    }
+    
+    .slider-with-input {
+      display: flex;
+      align-items: center;
+      
+      .input-with-checkbox {
+        display: flex;
+        align-items: center;
+      }
+      
+      .unlimited-text {
+        width: 100px;
+        text-align: center;
+        font-weight: bold;
+        color: #1890ff;
+      }
     }
   }
 }

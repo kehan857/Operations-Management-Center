@@ -74,10 +74,23 @@
                   />
                 </div>
                 <div class="action-wrapper">
-                  <a-button type="primary" class="add-button" @click="handleAddModel">
-                    <template #icon><PlusOutlined /></template>
-                    新增数据模型
-                  </a-button>
+                  <a-dropdown>
+                    <a-button type="primary" class="add-button">
+                      <template #icon><PlusOutlined /></template>
+                      新增数据模型
+                      <template #suffix><DownOutlined /></template>
+                    </a-button>
+                    <template #overlay>
+                      <a-menu>
+                        <a-menu-item key="blank" @click="handleAddBlankModel">
+                          <FormOutlined /> 新建空白模型
+                        </a-menu-item>
+                        <a-menu-item key="prebuilt" @click="handleSelectPrebuiltModel">
+                          <AppstoreOutlined /> 选择预建模型
+                        </a-menu-item>
+                      </a-menu>
+                    </template>
+                  </a-dropdown>
                 </div>
               </div>
             </div>
@@ -360,18 +373,31 @@
       </a-form>
     </a-modal>
 
+    <!-- 预建模型选择器弹窗 -->
+    <a-modal
+      v-model:visible="prebuiltModelSelectorVisible"
+      title="选择预建数据模型"
+      width="800px"
+      @ok="() => prebuiltModelSelectorVisible = false"
+    >
+      <PrebuiltModelSelector
+        @use-model="handlePrebuiltModelSelected"
+      />
+    </a-modal>
 
   </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, reactive, watch } from 'vue'
-import { PlusOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, DownOutlined, FormOutlined, AppstoreOutlined } from '@ant-design/icons-vue'
 import type { FormInstance } from 'ant-design-vue'
 import DataModelEditor from '../components/DataModelEditor.vue'
 import DataModelMapping from '../components/DataModelMapping.vue'
 import SearchComponent from '../components/SearchComponent.vue'
+import PrebuiltModelSelector from '../components/PrebuiltModelSelector.vue'
 import type { FilterConfig, SearchField, SortOption, QuickFilter } from '../types/search'
+import type { DataModel, PrebuiltModel, ModelField } from '../types/model'
 
 // 标签页激活key
 const activeKey = ref('metrics')
@@ -411,7 +437,11 @@ const businessDomainOptions = [
 ]
 
 // 可用指标列表
-const availableMetrics = ref([])
+const availableMetrics = ref<Array<{
+  code: string;
+  name: string;
+  status?: string;
+}>>([])
 
 // 用户列表
 const userList = ref([])
@@ -470,7 +500,10 @@ const modelModalVisible = ref(false)
 const modelModalTitle = ref('')
 const modelEditorRef = ref<InstanceType<typeof DataModelEditor>>()
 const modelMappingVisible = ref(false)
-const currentModel = ref<any>(null)
+const currentModel = ref<DataModel | null>(null)
+
+// 预建模型选择器相关
+const prebuiltModelSelectorVisible = ref(false)
 
 // 搜索相关配置
 // 指标搜索配置
@@ -990,25 +1023,51 @@ const handleEditMetric = (record: any) => {
 }
 
 // 数据模型相关操作
-const handleAddModel = () => {
+const handleAddBlankModel = () => {
   currentModel.value = null
   modelModalTitle.value = '新增数据模型'
   modelModalVisible.value = true
 }
 
-const handleEditModel = (record: any) => {
+const handleSelectPrebuiltModel = () => {
+  prebuiltModelSelectorVisible.value = true
+}
+
+const handlePrebuiltModelSelected = (model: PrebuiltModel) => {
+  // 将预建模型转换为当前系统的数据模型格式
+  currentModel.value = {
+    name: model.name,
+    businessDomain: model.type === 'business' ? ['business'] : [model.type, model.category],
+    modelType: model.type,
+    description: model.description,
+    fields: model.fields.map(field => ({
+      name: field.name,
+      type: field.type,
+      description: field.description,
+      metricMapping: '',
+      exceptionHandling: '',
+      specialScenarios: ''
+    }))
+  }
+  
+  prebuiltModelSelectorVisible.value = false
+  modelModalTitle.value = '编辑预建数据模型'
+  modelModalVisible.value = true
+}
+
+const handleEditModel = (record: DataModel) => {
   currentModel.value = { ...record }
   modelModalTitle.value = '编辑数据模型'
   modelModalVisible.value = true
 }
 
-const handleViewModel = (record: any) => {
+const handleViewModel = (record: DataModel) => {
   currentModel.value = { ...record }
   modelModalTitle.value = '查看数据模型'
   modelModalVisible.value = true
 }
 
-const handleMapModel = (record: any) => {
+const handleMapModel = (record: DataModel) => {
   currentModel.value = { ...record }
   modelMappingVisible.value = true
 }

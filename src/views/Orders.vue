@@ -47,6 +47,10 @@
                   <a style="color: #ff4d4f">取消订单</a>
                 </a-popconfirm>
               </template>
+              <template v-if="record.paymentMethod === '银行转账' && record.status === '待支付'">
+                <a-divider type="vertical" />
+                <a @click="showOfflinePaymentModal(record)">录入线下转账</a>
+              </template>
             </a-space>
           </template>
         </template>
@@ -97,12 +101,132 @@
         </a-timeline>
       </template>
     </a-drawer>
+
+    <!-- 线下转账录入弹窗 -->
+    <a-modal
+      v-model:visible="offlinePaymentModalVisible"
+      title="线下转账录入"
+      width="700px"
+      @ok="handleOfflinePaymentSubmit"
+    >
+      <a-form
+        ref="offlinePaymentFormRef"
+        :model="offlinePaymentForm"
+        :rules="offlinePaymentRules"
+        layout="vertical"
+      >
+        <a-divider orientation="left">企业信息</a-divider>
+        
+        <a-form-item label="企业名称">
+          <a-input
+            v-model:value="offlinePaymentForm.companyName"
+            placeholder="企业名称"
+            disabled
+          />
+        </a-form-item>
+        
+        <a-form-item label="企业统一社会信用代码">
+          <a-input 
+            v-model:value="offlinePaymentForm.creditCode" 
+            placeholder="企业统一社会信用代码"
+            disabled
+          />
+        </a-form-item>
+        
+        <a-form-item label="关联用户">
+          <a-input
+            v-model:value="offlinePaymentForm.userInfo"
+            placeholder="关联用户"
+            disabled
+          />
+        </a-form-item>
+        
+        <a-divider orientation="left">转账信息</a-divider>
+        
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="转账金额" name="amount">
+              <a-input-number
+                v-model:value="offlinePaymentForm.amount"
+                :min="0"
+                style="width: 100%"
+                placeholder="请输入转账金额"
+                addon-before="¥"
+              />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="转账时间" name="transferTime">
+              <a-date-picker
+                v-model:value="offlinePaymentForm.transferTime"
+                style="width: 100%"
+                show-time
+                format="YYYY-MM-DD HH:mm:ss"
+                placeholder="请选择转账时间"
+              />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="转账银行" name="bank">
+              <a-input
+                v-model:value="offlinePaymentForm.bank"
+                placeholder="请输入转账银行"
+              />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="转账流水号" name="transactionId">
+              <a-input
+                v-model:value="offlinePaymentForm.transactionId"
+                placeholder="请输入转账流水号"
+              />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        
+        <a-form-item label="订阅套餐">
+          <a-input
+            v-model:value="offlinePaymentForm.subscriptionPlanName"
+            placeholder="订阅套餐"
+            disabled
+          />
+        </a-form-item>
+        
+        <a-form-item label="转账凭证" name="paymentProof">
+          <a-upload
+            v-model:fileList="offlinePaymentForm.paymentProof"
+            :before-upload="beforeUpload"
+            action="/api/upload"
+            list-type="picture-card"
+          >
+            <div v-if="offlinePaymentForm.paymentProof.length < 1">
+              <div class="ant-upload-text">上传凭证</div>
+              <p class="ant-upload-hint">
+                支持 JPG, PNG, PDF 格式
+              </p>
+            </div>
+          </a-upload>
+        </a-form-item>
+        
+        <a-form-item label="备注" name="remark">
+          <a-textarea
+            v-model:value="offlinePaymentForm.remark"
+            rows="3"
+            placeholder="请输入备注信息"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import type { Dayjs } from 'dayjs'
+import type { FormInstance, UploadProps } from 'ant-design-vue'
 import SearchComponent from '../components/SearchComponent.vue'
 
 const loading = ref(false)
@@ -301,6 +425,137 @@ const cancelOrder = (record: any) => {
   console.log('cancel order:', record)
   // 实现取消订单逻辑
 }
+
+// 线下转账录入相关
+const offlinePaymentModalVisible = ref(false)
+const offlinePaymentFormRef = ref<FormInstance>()
+const creditCodeValidateStatus = ref('')
+const currentEditOrder = ref<any>(null)
+
+// 企业搜索
+const companyOptions = ref<{ value: string }[]>([])
+const handleCompanySearch = (query: string) => {
+  if (query) {
+    // 模拟API搜索结果
+    companyOptions.value = [
+      { value: '天云科技有限公司' },
+      { value: '天云数据科技（北京）有限公司' },
+      { value: '天云智能科技（上海）有限公司' }
+    ].filter(item => item.value.includes(query))
+  } else {
+    companyOptions.value = []
+  }
+}
+
+// 用户搜索
+const userOptions = ref<{ label: string; value: string; userName: string }[]>([])
+const handleUserSearch = (query: string) => {
+  if (query) {
+    // 模拟API搜索结果
+    userOptions.value = [
+      { label: '张三 (ID: U1001)', value: 'U1001', userName: '张三' },
+      { label: '李四 (ID: U1002)', value: 'U1002', userName: '李四' },
+      { label: '王五 (ID: U1003)', value: 'U1003', userName: '王五' }
+    ].filter(item => item.label.includes(query))
+  } else {
+    userOptions.value = []
+  }
+}
+
+// 订阅套餐
+const subscriptionPlans = ref([
+  { label: '企业大脑基础版 (月付¥999)', value: 'basic-monthly' },
+  { label: '企业大脑基础版 (年付¥9999)', value: 'basic-yearly' },
+  { label: '企业大脑专业版 (月付¥1999)', value: 'pro-monthly' },
+  { label: '企业大脑专业版 (年付¥19999)', value: 'pro-yearly' }
+])
+
+// 社会信用代码验证
+const validateCreditCode = () => {
+  const code = offlinePaymentForm.creditCode
+  if (!code) {
+    creditCodeValidateStatus.value = ''
+    return
+  }
+  
+  // 社会信用代码正则验证
+  const pattern = /^[0-9A-HJ-NPQRTUWXY]{2}\d{6}[0-9A-HJ-NPQRTUWXY]{10}$/
+  if (pattern.test(code)) {
+    creditCodeValidateStatus.value = 'success'
+  } else {
+    creditCodeValidateStatus.value = 'error'
+  }
+}
+
+// 上传前检查
+const beforeUpload: UploadProps['beforeUpload'] = (file) => {
+  const isJpgOrPngOrPdf = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'application/pdf'
+  const isLt10M = file.size / 1024 / 1024 < 10
+
+  if (!isJpgOrPngOrPdf) {
+    alert('只能上传JPG、PNG或PDF格式的文件!')
+  }
+  
+  if (!isLt10M) {
+    alert('文件大小不能超过10MB!')
+  }
+  
+  return isJpgOrPngOrPdf && isLt10M
+}
+
+// 表单数据
+const offlinePaymentForm = reactive({
+  companyName: '',
+  creditCode: '',
+  userId: '',
+  userInfo: '',
+  amount: null as number | null,
+  transferTime: null as Dayjs | null,
+  bank: '',
+  transactionId: '',
+  subscriptionPlan: '',
+  subscriptionPlanName: '',
+  paymentProof: [] as any[],
+  remark: ''
+})
+
+// 表单验证规则
+const offlinePaymentRules = {
+  amount: [{ required: true, message: '请输入转账金额' }],
+  transferTime: [{ required: true, message: '请选择转账时间' }],
+  paymentProof: [{ required: true, message: '请上传转账凭证' }]
+}
+
+// 显示线下转账录入弹窗
+const showOfflinePaymentModal = (record: any) => {
+  currentEditOrder.value = record
+  
+  // 预填写表单数据
+  offlinePaymentForm.companyName = record.company
+  offlinePaymentForm.creditCode = record.creditCode || '91110000123456789X'  // 假设订单中包含企业信用代码
+  offlinePaymentForm.userInfo = record.contactUser || '张三 (ID: U1001)' // 假设订单中包含联系人信息
+  offlinePaymentForm.userId = record.userId || 'U1001' // 假设订单中包含用户ID
+  
+  // 设置套餐信息
+  offlinePaymentForm.subscriptionPlanName = record.product
+  offlinePaymentForm.subscriptionPlan = record.productId || ''
+  
+  // 预设金额
+  offlinePaymentForm.amount = record.amount
+  
+  offlinePaymentModalVisible.value = true
+}
+
+// 提交线下转账表单
+const handleOfflinePaymentSubmit = () => {
+  offlinePaymentFormRef.value?.validate().then(() => {
+    console.log('表单数据:', offlinePaymentForm)
+    // 实现提交逻辑，可以调用API创建新订单
+    offlinePaymentModalVisible.value = false
+  }).catch(err => {
+    console.error('表单验证失败:', err)
+  })
+}
 </script>
 
 <style lang="less" scoped>
@@ -313,11 +568,11 @@ const cancelOrder = (record: any) => {
   
   .card-content {
     margin-bottom: 16px;
-  }
-  
-  .search-container {
-    width: 100%;
-    max-width: 800px;
+    
+    .search-container {
+      width: 100%;
+      max-width: 800px;
+    }
   }
 
   // 修改搜索组件样式
@@ -336,6 +591,18 @@ const cancelOrder = (record: any) => {
     .ant-btn {
       height: 32px;
     }
+  }
+  
+  .error-message {
+    color: #ff4d4f;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  
+  .success-message {
+    color: #52c41a;
+    font-size: 12px;
+    margin-top: 4px;
   }
 }
 </style>

@@ -25,9 +25,9 @@
             </div>
             <div class="action-wrapper">
               <a-button type="primary" class="add-button" @click="handleAddAgent">
-                <template #icon><PlusOutlined /></template>
-                新增Agent
-              </a-button>
+            <template #icon><PlusOutlined /></template>
+            新增Agent
+          </a-button>
             </div>
           </div>
         </div>

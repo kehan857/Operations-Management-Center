@@ -20,13 +20,13 @@
               @export="handleExport"
               @save-filter="handleSaveFilter"
               class="custom-search-component"
-            />
+          />
           </div>
           <div class="action-wrapper">
             <a-button type="primary" class="add-button" @click="showAddUserModal">
-              <template #icon><PlusOutlined /></template>
-              添加用户
-            </a-button>
+            <template #icon><PlusOutlined /></template>
+            添加用户
+          </a-button>
           </div>
         </div>
       </div>

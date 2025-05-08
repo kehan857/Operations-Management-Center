@@ -52,7 +52,7 @@
                 <a-button type="primary" size="small" @click="approve(record)">
                   通过
                 </a-button>
-                <a-button danger size="small" @click="reject(record)">
+                <a-button danger size="small" @click="openRejectModal(record)">
                   拒绝
                 </a-button>
               </template>
@@ -107,7 +107,7 @@
               <a-button type="primary" @click="approve(currentRecord)">
                 通过
               </a-button>
-              <a-button danger @click="reject(currentRecord)">
+              <a-button danger @click="openRejectModal(currentRecord)">
                 拒绝
               </a-button>
             </a-space>
@@ -115,11 +115,64 @@
         </template>
       </template>
     </a-drawer>
+
+    <!-- 审核拒绝弹窗 -->
+    <a-modal
+      v-model:visible="rejectModalVisible"
+      title="审核拒绝"
+      @ok="handleRejectConfirm"
+      @cancel="rejectModalVisible = false"
+      :okButtonProps="{ disabled: !isRejectReasonValid }"
+    >
+      <a-form :model="rejectForm" layout="vertical">
+        <a-form-item 
+          label="拒绝原因" 
+          name="rejectReason" 
+          :rules="[{ required: true, message: '请选择或填写拒绝原因' }]"
+          required
+        >
+          <a-radio-group v-model:value="rejectForm.reasonType" @change="handleRejectReasonTypeChange">
+            <a-radio value="common">常用原因</a-radio>
+            <a-radio value="custom">自定义原因</a-radio>
+          </a-radio-group>
+        </a-form-item>
+
+        <a-form-item v-if="rejectForm.reasonType === 'common'">
+          <a-select
+            v-model:value="rejectForm.commonReason"
+            placeholder="请选择拒绝原因"
+            style="width: 100%"
+            @change="handleCommonReasonChange"
+          >
+            <a-select-option v-for="(reason, index) in commonRejectReasons" :key="index" :value="reason">
+              {{ reason }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
+
+        <a-form-item v-if="rejectForm.reasonType === 'custom'">
+          <a-textarea
+            v-model:value="rejectForm.customReason"
+            placeholder="请输入拒绝原因"
+            :rows="4"
+            @change="handleCustomReasonChange"
+          />
+        </a-form-item>
+
+        <a-alert
+          v-if="!isRejectReasonValid"
+          type="warning"
+          message="请选择或填写拒绝原因"
+          banner
+        />
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { message } from 'ant-design-vue'
 import SearchComponent from '../components/SearchComponent.vue'
 
 const loading = ref(false)
@@ -127,6 +180,80 @@ const filterStatus = ref('all')
 const drawerVisible = ref(false)
 const currentRecord = ref<any>(null)
 const auditComment = ref('')
+
+// 拒绝弹窗相关
+const rejectModalVisible = ref(false)
+const rejectForm = ref({
+  reasonType: 'common',
+  commonReason: '',
+  customReason: ''
+})
+
+// 常用拒绝原因列表
+const commonRejectReasons = [
+  '营业执照信息与填写不符',
+  '营业执照已过期',
+  '企业信息不完整',
+  '企业资质材料不清晰',
+  '企业未按要求提供补充材料',
+  '企业信息存在虚假情况',
+  '其他不符合认证要求的情况'
+]
+
+// 计算拒绝原因是否有效
+const isRejectReasonValid = computed(() => {
+  if (rejectForm.value.reasonType === 'common') {
+    return !!rejectForm.value.commonReason
+  } else {
+    return !!rejectForm.value.customReason
+  }
+})
+
+// 打开拒绝弹窗
+const openRejectModal = (record: any) => {
+  currentRecord.value = record
+  rejectForm.value = {
+    reasonType: 'common',
+    commonReason: '',
+    customReason: ''
+  }
+  rejectModalVisible.value = true
+}
+
+// 处理拒绝原因类型变更
+const handleRejectReasonTypeChange = () => {
+  // 清空另一种类型的值
+  if (rejectForm.value.reasonType === 'common') {
+    rejectForm.value.customReason = ''
+  } else {
+    rejectForm.value.commonReason = ''
+  }
+}
+
+// 处理常用原因选择
+const handleCommonReasonChange = () => {
+  // 可以添加一些额外的处理逻辑
+}
+
+// 处理自定义原因变更
+const handleCustomReasonChange = () => {
+  // 可以添加一些额外的处理逻辑
+}
+
+// 处理拒绝确认
+const handleRejectConfirm = () => {
+  if (!isRejectReasonValid.value) {
+    return
+  }
+  
+  const reason = rejectForm.value.reasonType === 'common' 
+    ? rejectForm.value.commonReason 
+    : rejectForm.value.customReason
+  
+  // 执行拒绝操作
+  reject(currentRecord.value, reason)
+  rejectModalVisible.value = false
+}
 
 // 搜索配置
 const searchFields = [
@@ -269,11 +396,19 @@ const viewDetails = (record: any) => {
 const approve = (record: any) => {
   console.log('approve:', record, auditComment.value)
   // 实现审核通过逻辑
+  record.status = '已通过'
+  message.success(`已通过 ${record.company} 的企业认证申请`)
+  drawerVisible.value = false
 }
 
-const reject = (record: any) => {
-  console.log('reject:', record, auditComment.value)
+const reject = (record: any, rejectReason?: string) => {
+  const reason = rejectReason || auditComment.value
+  console.log('reject:', record, '拒绝原因:', reason)
+  
   // 实现审核拒绝逻辑
+  record.status = '已拒绝'
+  message.success(`已拒绝 ${record.company} 的企业认证申请`)
+  drawerVisible.value = false
 }
 </script>
 
